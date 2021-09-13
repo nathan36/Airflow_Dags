@@ -1,6 +1,5 @@
 from bs4 import BeautifulSoup
 import requests
-import pandas as pd
 import time
 import random
 
@@ -11,6 +10,7 @@ class parser():
         self.max_price = max_price
         self.min_year_built = min_year_built
         self.data = None
+        self.result = None
 
     def get_request(self):
         headers = ({'User-Agent':
@@ -46,13 +46,13 @@ class parser():
         self.data = data
 
     def parse_data(self):
-        data = []
+        r = []
         for item in self.data:
             page_html = BeautifulSoup(item, "html.parser")
             house_containers = page_html.find_all("div", class_="displaypanel-body")
-            row = {}
             if house_containers != []:
                 for container in house_containers:
+                    row = {}
                     # price
                     price_container = container.find_all("div", class_="displaypanel-title hidden-xs")
                     if price_container != []:
@@ -66,17 +66,15 @@ class parser():
                         location = location_container[0].get("href").split("?")[0].split("/")[-1]
                     else:
                         location = None
-                    row['location'] = location
                     # size
                     size_container = container.find_all("ul", class_="l-pipedlist")
                     if len(size_container) > 1:
                         size = int(size_container[1].find_all("li")[-1].text.split()[0])
                     else:
                         size = None
-                    if price and location and size:
+                    if price != None and location != None and size != None:
                         row['price'] = price
                         row['location'] = location
                         row['size'] = size
-            if bool(row):
-                data.append(row)
-        return data
+                        r.append(row)
+        self.result = r

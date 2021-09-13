@@ -14,23 +14,25 @@ def parse_data():
 
     session = parser(area, type, max_price, min_year_built)
     session.get_request()
-    data = session.parse_data()
-    return data
+    session.parse_data()
+    return session.result
 
 def store_data(**kwargs):
     ti = kwargs['ti']
     data = ti.xcom_pull(key=None, task_ids='parse_data')
-    connection = MySqlHook(mysql_conn_id='mysql_default')
+    parsedDt = dt.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+    connection = MySqlHook(mysql_conn_id='mysql_propertydb')
     for row in data:
-        sql = 'INSERT INTO property(price,location,size) VALUES(%s,%s,%s)'
+        sql = 'INSERT INTO property(price,location,size,parse_dt) VALUES(%s,%s,%s,%s)'
         connection.run(sql, autocommit=True, parameters=(row['price'],
                                                          row['location'],
-                                                         row['size']))
+                                                         row['size'],
+                                                         parsedDt))
     return 'store_data'
 
 default_args = {
     'owner': 'airflow',
-    'start_date': dt.datetime(2021,9,11,00,00,00),
+    'start_date': dt.datetime(2021,9,8,00,00,00),
     'concurrency': 1,
     'retries': 2
 }
