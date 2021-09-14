@@ -4,6 +4,7 @@ from airflow.providers.mysql.hooks.mysql import MySqlHook
 from airflow.models import Variable
 import datetime as dt
 from class_module.property_parser import parser
+from class_module.operators import CustomMySqlOperator
 
 def parse_data():
     config = Variable.get("config", deserialize_json=True)
@@ -20,7 +21,7 @@ def parse_data():
 def store_data(**kwargs):
     ti = kwargs['ti']
     data = ti.xcom_pull(key=None, task_ids='parse_data')
-    parsedDt = dt.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+    parsedDt = kwargs.get('execution_date')
     connection = MySqlHook(mysql_conn_id='mysql_propertydb')
     for row in data:
         sql = 'INSERT INTO property(price,location,size,parse_dt) VALUES(%s,%s,%s,%s)'
@@ -46,5 +47,8 @@ with DAG('load_property_data',
                                       python_callable=parse_data)
     opr_store_data = PythonOperator(task_id='store_data',
                                     python_callable=store_data)
+    partition = CustomMySqlOperator(task_id='partition',
+                                    mysql_conn_id='mysql_propertydb',
+                                    sql='sql/partition.sql')
 
-opr_parse_propertyData >> opr_store_data
+opr_parse_propertyData >> partition >> opr_store_data
