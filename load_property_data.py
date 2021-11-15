@@ -1,24 +1,24 @@
-import sqlalchemy.dialects.postgresql.psycopg2
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.mysql.hooks.mysql import MySqlHook
 from airflow.models import Variable
 import datetime as dt
-from class_module.property_parser import parser
+from class_module.scraper import Scrper
 from class_module.operators import CustomMySqlOperator
-import logging
+from pandas import DataFrame
 
-def parse_data():
+def parse_data() -> DataFrame:
     config = Variable.get("config", deserialize_json=True)
-    area = config['area']
-    type = config['type']
-    max_price = config['max_price']
-    min_year_built = config['min_year_built']
-
-    session = parser(area, type, max_price, min_year_built)
-    session.get_request()
-    session.parse_data()
-    return session.result
+    filter = {'area':config['area'],
+              'type':config['type'],
+              'max_price':config['max_price'],
+              'min_year_built':config['min_year_built']}
+    headers = {'User-Agent':
+                'Mozilla/5.0 (Windows NT 6.1) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/41.0.2228.0 Safari/537.36'}
+    scraper = Scrper(headers=headers, filter=filter)
+    return scraper.get_content()
 
 def store_data(**kwargs):
     ti = kwargs['ti']
