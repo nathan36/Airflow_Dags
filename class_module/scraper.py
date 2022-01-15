@@ -12,12 +12,10 @@ class Page:
 
 
 @dataclass
-class Scrper:
+class Scraper:
     headers: Dict
     filter: Dict
-    prices: List = field(default_factory=list)
-    locations: List = field(default_factory=list)
-    lot_sizes: List = field(default_factory=list)
+    data: List[tuple] = field(default_factory=list)
     stop_flag: bool = False
     page: int = 1
 
@@ -50,44 +48,27 @@ class Scrper:
             print('finish parsing content from page {}'.format(self.page - 1))
         return pages
 
-    def get_price(self, container) -> int:
-            price_container = container.find_all("div", class_="displaypanel-title hidden-xs")
-            if price_container and len(price_container) != 0:
-                price = price_container[0].text
-                price = int(price.replace("\n", "").replace("$", "").replace(",", ""))
-            else:
-                price = 0
-            return price
+    def get_info(self, container) -> tuple:
+        price_container = container.find_all("div", class_="displaypanel-title hidden-xs")
+        location_container = container.find_all("a")
+        size_container = container.find_all("ul", class_="l-pipedlist")
+        if price_container or location_container \
+                or (size_container and len(size_container) > 1):
+            price_txt = price_container[0].text
+            price = int(price_txt.replace("\n", "").replace("$", "").replace(",", ""))
+            location = location_container[0].get("href").split("?")[0].split("/")[-1]
+            label_lst = size_container[1].find_all("li")
+            size = int([ele.text.split()[0] for ele in label_lst if 'sf' in ele.text][0])
+            return (price, location, size)
 
-    def get_location(self, container) -> str:
-            location_container = container.find_all("a")
-            if location_container and len(location_container) != 0:
-                location = location_container[0].get("href").split("?")[0].split("/")[-1]
-            else:
-                location = "None"
-            return location
-
-    def get_lot_size(self, container) -> int:
-            size_container = container.find_all("ul", class_="l-pipedlist")
-            if size_container and len(size_container) > 1:
-                size = int(size_container[1].find_all("li")[-1].text.split()[0])
-            else:
-                size = 0
-            return size
-
-    def _get_content(self):
+    def _get_content(self) -> None:
         pages: List[Page] = self.parse_html()
         for page in pages:
-            self.prices = list(map(lambda container: self.get_price(container), page.containers))
-            self.locations = list(map(lambda container: self.get_location(container), page.containers))
-            self.lot_sizes = list(map(lambda container: self.get_lot_size(container), page.containers))
+            self.data = list(map(lambda container: self.get_info(container), page.containers))
 
-    def get_content(self) -> pd.DataFrame:
+    def get_content(self) -> list:
         self._get_content()
-        return pd.DataFrame({'Price': self.prices,
-                             'Location': self.locations,
-                             'Size': self.lot_sizes,
-                             'ParsedDt': date.today().strftime('%Y-%m-%d %H:%M:%S')})
+        return [tup for tup in self.data if tup]
 
 
 
